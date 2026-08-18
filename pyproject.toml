@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-assetsync"
+version = "0.1.0"
+description = "Generator-agnostic bridge from ComfyUI to Blender, Maya, and Unreal Engine"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "ComfyUI-AssetSync contributors"}]
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["assetsync*"]
+

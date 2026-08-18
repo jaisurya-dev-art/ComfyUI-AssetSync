@@ -1,0 +1,11 @@
+{
+  "blender_executable": "",
+  "blender_port": 18951,
+  "maya_port": 18952,
+  "unreal_port": 18953,
+  "cache_directory": "",
+  "log_level": "INFO",
+  "connect_timeout": 2.0,
+  "response_timeout": 120.0
+}
+

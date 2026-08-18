@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.log
+.pytest_cache/
+.coverage
+config/assetsync.json
+cache/
+dist/
+build/
+docs/
+*.egg-info/
