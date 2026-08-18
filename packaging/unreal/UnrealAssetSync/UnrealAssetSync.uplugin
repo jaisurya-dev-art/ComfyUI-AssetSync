@@ -1,0 +1,18 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.2.0",
+  "FriendlyName": "ComfyUI AssetSync",
+  "Description": "Imports generated 3D assets from ComfyUI into Unreal Editor.",
+  "Category": "Editor",
+  "CreatedBy": "ComfyUI-AssetSync contributors",
+  "CanContainContent": true,
+  "IsBetaVersion": true,
+  "Installed": false,
+  "Plugins": [
+    { "Name": "PythonScriptPlugin", "Enabled": true },
+    { "Name": "EditorScriptingUtilities", "Enabled": true },
+    { "Name": "InterchangeEditor", "Enabled": true }
+  ]
+}
+
