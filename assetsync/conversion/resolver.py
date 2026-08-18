@@ -17,7 +17,8 @@ class ConversionResolver:
             if asset.mesh_format in converter.source_formats and target == converter.target_format:
                 result = converter.convert(asset, destination.name)
                 if result.success and result.output_path and result.output_format:
-                    return asset.with_resolved_mesh(result.output_path, result.output_format, result.texture_paths)
+                    return asset.with_resolved_mesh(
+                        result.output_path, result.output_format, result.texture_paths, result.metadata,
+                    )
                 raise ConversionError(result.message or "Asset conversion failed.")
         raise ConversionError("No converter is available for {0} to {1}.".format(asset.mesh_format.upper(), target.upper()))
-

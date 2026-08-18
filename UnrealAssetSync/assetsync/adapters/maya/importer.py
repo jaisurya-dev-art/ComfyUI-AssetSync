@@ -8,6 +8,22 @@ from .materials import rebuild_material
 GLTF_TO_MAYA_CENTIMETERS = 100.0
 
 
+def _enable_double_sided_viewport(cmds, shapes: List[str]) -> None:
+    """Match glTF doubleSided rendering in Maya Viewport 2.0."""
+    for shape in shapes:
+        try:
+            cmds.setAttr(shape + ".doubleSided", True)
+            cmds.setAttr(shape + ".opposite", False)
+        except Exception:
+            pass
+    try:
+        for panel in cmds.getPanel(type="modelPanel") or []:
+            cmds.modelEditor(panel, edit=True, twoSidedLighting=True)
+    except Exception:
+        # maya.standalone has no model panels; the mesh attributes still apply.
+        pass
+
+
 def _roots_with_id(cmds, asset_id: str) -> List[str]:
     result = []
     for plug in cmds.ls("*.assetsync_id") or []:
@@ -72,6 +88,8 @@ def import_asset(asset: AssetDescriptor, options: ImportOptions) -> Dict[str, An
         cmds.addAttr(group, longName=attribute, dataType="string")
         cmds.setAttr(group + "." + attribute, str(value), type="string")
     shapes = cmds.listRelatives(group, allDescendents=True, type="mesh", fullPath=True) or []
+    if asset.metadata.get("double_sided"):
+        _enable_double_sided_viewport(cmds, shapes)
     texture_paths = [item.path for item in asset.textures]
     rebuilt = rebuild_material(asset.name, shapes, texture_paths) if options.import_materials and options.import_textures else 0
     materials = set()

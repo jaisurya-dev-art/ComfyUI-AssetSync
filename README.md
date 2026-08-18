@@ -60,6 +60,8 @@ The receiver starts automatically on `127.0.0.1:18951` by default. Its add-on pr
 
 ### Maya receiver
 
+**Blender is required for Maya GLB/GLTF imports.** AssetSync runs Blender headlessly to convert these files to FBX before sending them to Maya. Native FBX and OBJ imports do not require Blender.
+
 1. Double-click `maya_assetsync_setup.bat` and enter the four-digit Maya version.
 2. Restart Maya.
 3. Open **Windows → Settings/Preferences → Plug-in Manager**.

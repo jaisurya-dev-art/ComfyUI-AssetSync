@@ -2,10 +2,31 @@
 
 import json
 import re
+import struct
 import sys
 from pathlib import Path
 
 import bpy
+
+
+def uses_double_sided_material(source):
+    """Read the glTF flag directly; FBX has no reliable equivalent for Maya VP2."""
+    try:
+        if source.suffix.lower() == ".gltf":
+            document = json.loads(source.read_text(encoding="utf-8"))
+        else:
+            with source.open("rb") as stream:
+                header = stream.read(12)
+                if len(header) != 12 or header[:4] != b"glTF":
+                    return False
+                chunk_length, chunk_type = struct.unpack("<II", stream.read(8))
+                if chunk_type != 0x4E4F534A:
+                    return False
+                document = json.loads(stream.read(chunk_length).decode("utf-8").rstrip("\x00 \t\r\n"))
+        return any(bool(material.get("doubleSided")) for material in document.get("materials", []))
+    except Exception as exc:
+        print("[AssetSync] Could not inspect glTF material sidedness: {0}".format(exc))
+        return False
 
 
 def safe_name(value):
@@ -58,6 +79,7 @@ def main():
     if len(args) != 4:
         raise RuntimeError("Expected input, output, texture directory, and manifest paths")
     source, output, texture_dir, manifest = map(Path, args)
+    double_sided = uses_double_sided_material(source)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(source))
     textures = externalize_images(texture_dir)
@@ -66,7 +88,9 @@ def main():
         filepath=str(output), use_selection=False, path_mode="COPY", embed_textures=False,
         add_leaf_bones=False, use_mesh_modifiers=False, mesh_smooth_type="FACE",
     )
-    Path(manifest).write_text(json.dumps({"success": True, "textures": textures}, indent=2), encoding="utf-8")
+    Path(manifest).write_text(json.dumps({
+        "success": True, "textures": textures, "double_sided": double_sided,
+    }, indent=2), encoding="utf-8")
     print("[AssetSync] Exported {0} with {1} textures".format(output, len(textures)))
 
 

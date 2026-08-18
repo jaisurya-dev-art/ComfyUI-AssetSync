@@ -72,10 +72,14 @@ class AssetDescriptor:
         data["id"] = data.pop("asset_id")
         return data
 
-    def with_resolved_mesh(self, path: str, mesh_format: str, textures: List[str]) -> "AssetDescriptor":
+    def with_resolved_mesh(
+        self, path: str, mesh_format: str, textures: List[str],
+        conversion_metadata: Optional[Dict[str, Any]] = None,
+    ) -> "AssetDescriptor":
         metadata = dict(self.metadata)
         metadata.setdefault("original_format", self.mesh_format)
         metadata["conversion_target_format"] = mesh_format
+        metadata.update(conversion_metadata or {})
         return AssetDescriptor(
             asset_id=self.asset_id,
             name=self.name,

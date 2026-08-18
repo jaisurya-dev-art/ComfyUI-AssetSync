@@ -55,7 +55,7 @@ def source_fingerprint(path: Path) -> Dict[str, object]:
 class BlenderFbxConverter(BaseConverter):
     source_formats = frozenset({"glb", "gltf"})
     target_format = "fbx"
-    version = 2
+    version = 3
 
     def __init__(self, config: AssetSyncConfig):
         self.config = config
@@ -111,5 +111,6 @@ class BlenderFbxConverter(BaseConverter):
                 pass
         texture_paths = [str(Path(item).resolve()) for item in manifest_data.get("textures", []) if Path(item).is_file()]
         expected["texture_paths"] = texture_paths
+        expected["double_sided"] = bool(manifest_data.get("double_sided", False))
         metadata_path.write_text(json.dumps(expected, indent=2, ensure_ascii=False), encoding="utf-8")
         return ConversionResult(True, str(source), str(output.resolve()), "fbx", texture_paths, "Converted with Blender", expected)

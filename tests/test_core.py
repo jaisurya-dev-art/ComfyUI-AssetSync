@@ -62,9 +62,10 @@ class CoreTests(unittest.TestCase):
 
     def test_resolved_asset_preserves_original_format(self):
         asset = AssetDescriptor.from_path(self.path, asset_id="id")
-        resolved = asset.with_resolved_mesh("converted.fbx", "fbx", [])
+        resolved = asset.with_resolved_mesh("converted.fbx", "fbx", [], {"double_sided": True})
         self.assertEqual(resolved.metadata["original_format"], "glb")
         self.assertEqual(resolved.metadata["conversion_target_format"], "fbx")
+        self.assertTrue(resolved.metadata["double_sided"])
 
 
 if __name__ == "__main__":
