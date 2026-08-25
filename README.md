@@ -2,8 +2,6 @@
 
 ComfyUI-AssetSync bridges AI-generated 3D assets directly from ComfyUI into Blender, Maya, and Unreal Engine.
 
-It does not generate models and contains no generator SDK. Tripo, TRELLIS/TRELLIS2, Hunyuan3D, Meshy, and future generators are examples of upstream tools—not dependencies. AssetSync begins at the final GLB, GLTF, FBX, or OBJ.
-
 ![ComfyUI AssetSync node](AssetSync_Node.png)
 
 ```text
