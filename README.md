@@ -9,9 +9,10 @@ Traditional: Generate → Find → Copy → Convert → Browse → Import → Fi
 AssetSync:   Generate → AssetSync → DCC
 ```
 
-## What v1 includes
+## What it includes
 
 - One generator-agnostic ComfyUI `AssetSync` node
+- A dedicated `MotionSync to Maya` node for skeletal motion transfer
 - Persistent identity derived from the ComfyUI node ID, or an explicit `assetsync_id`
 - Direct Blender GLB/GLTF/FBX/OBJ import into tracked collections
 - Transparent GLB/GLTF → FBX conversion for Maya using headless Blender
@@ -33,6 +34,8 @@ AssetSync:   Generate → AssetSync → DCC
 Unreal's GLB/GLTF path requires an Unreal version/project with the Interchange glTF importer enabled. Capability checks intentionally reject combinations not claimed here.
 
 For Maya, glTF's meter units are converted to Maya centimeters and frozen on the imported AssetSync root. This avoids precision-related shading artifacts on thin triangles while leaving native FBX and OBJ scale untouched. FBX smoothing groups are explicitly enabled during the headless Blender export and Maya import.
+
+MotionSync relies on the FBX file's unit metadata instead of freezing animated rig transforms, preserving root-motion distance and joint animation.
 
 ## Install
 
@@ -67,6 +70,19 @@ The receiver starts automatically on `127.0.0.1:18951` by default. Its add-on pr
 
 The receiver then starts automatically on `127.0.0.1:18952`. The FBX plug-in is loaded automatically when an FBX arrives. Optional controls are available from Maya Python with `from MayaAssetSync.preferences import show_window; show_window()`.
 
+### Motion data transfer to Maya
+
+Use `MotionSync to Maya` when an upstream motion-transfer or animation node outputs an animated GLB, GLTF, or FBX model.
+
+1. Connect the animated model output to `animated_model`.
+2. Leave `motion_clip` empty to transfer the first embedded clip, or enter its exact name.
+3. Leave `include_source_model` off to send only the source skeleton, hierarchy, and animation curves. Enable it when the clip includes animated morph targets or when the carrier mesh is useful for retargeting.
+4. Run the workflow with the Maya receiver active.
+
+For GLB/GLTF input, Blender runs headlessly and bakes the selected clip into one FBX animation take without curve simplification. Maya explicitly imports that take, fills the playback range, converts quaternion motion to compatible Euler curves, and reports the imported clip, joint count, and animation-curve count.
+
+The imported source skeleton is ready for an animator to inspect, bake, or retarget in Maya. Automatic retargeting onto an unrelated production rig is intentionally not performed: reliable retargeting requires a project-specific mapping between source joints and destination controls plus compatible rest poses.
+
 ### Unreal receiver
 
 1. Copy the generated `UnrealAssetSync` directory into your Unreal project's `Plugins/` directory.
@@ -95,11 +111,18 @@ Receivers expose `GET /v1/status` and `POST /v1/assets`, on localhost only. Impo
 ```json
 {
   "protocol": "assetsync",
-  "version": 1,
+  "version": 2,
   "action": "import_asset",
   "asset": {"id": "uuid", "name": "Robot", "mesh_path": "D:/output/robot.glb", "mesh_format": "glb"},
   "destination": {"dcc": "blender"},
-  "options": {"replace_existing": true, "import_materials": true, "import_textures": true}
+  "options": {
+    "replace_existing": true,
+    "import_materials": true,
+    "import_textures": true,
+    "import_animation": true,
+    "motion_only": false,
+    "animation_clip": ""
+  }
 }
 ```
 
@@ -113,7 +136,7 @@ Core tests need no DCC installation:
 python -m unittest discover -s tests -v
 ```
 
-Manual DCC validation should cover: single mesh/base color, full PBR, multiple meshes/materials, embedded GLB images, nested hierarchy, spaces and Unicode paths, and repeat sync with the same ID. Maya acceptance additionally compares geometry/UVs and verifies reconstructed texture connections after GLB → FBX.
+Manual DCC validation should cover: single mesh/base color, full PBR, multiple meshes/materials, embedded GLB images, nested hierarchy, spaces and Unicode paths, and repeat sync with the same ID. Maya acceptance additionally compares geometry/UVs, verifies reconstructed texture connections after GLB → FBX, and validates motion clip names, joint hierarchy, animation curves, frame range, and root-motion distance.
 
 ## Security and scope
 

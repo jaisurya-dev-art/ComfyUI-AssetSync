@@ -17,7 +17,9 @@ class ComfyUILoaderTests(unittest.TestCase):
         try:
             spec.loader.exec_module(module)
             self.assertIn("AssetSync", module.NODE_CLASS_MAPPINGS)
+            self.assertIn("MotionSync", module.NODE_CLASS_MAPPINGS)
             self.assertEqual(module.NODE_DISPLAY_NAME_MAPPINGS["AssetSync"], "AssetSync")
+            self.assertEqual(module.NODE_DISPLAY_NAME_MAPPINGS["MotionSync"], "MotionSync to Maya")
         finally:
             for name in list(sys.modules):
                 if name == module_name or name.startswith(module_name + "."):

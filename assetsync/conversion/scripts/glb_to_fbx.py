@@ -2,31 +2,59 @@
 
 import json
 import re
-import struct
 import sys
 from pathlib import Path
 
 import bpy
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-def uses_double_sided_material(source):
-    """Read the glTF flag directly; FBX has no reliable equivalent for Maya VP2."""
-    try:
-        if source.suffix.lower() == ".gltf":
-            document = json.loads(source.read_text(encoding="utf-8"))
-        else:
-            with source.open("rb") as stream:
-                header = stream.read(12)
-                if len(header) != 12 or header[:4] != b"glTF":
-                    return False
-                chunk_length, chunk_type = struct.unpack("<II", stream.read(8))
-                if chunk_type != 0x4E4F534A:
-                    return False
-                document = json.loads(stream.read(chunk_length).decode("utf-8").rstrip("\x00 \t\r\n"))
-        return any(bool(material.get("doubleSided")) for material in document.get("materials", []))
-    except Exception as exc:
-        print("[AssetSync] Could not inspect glTF material sidedness: {0}".format(exc))
-        return False
+from assetsync.conversion.gltf_inspector import inspect_gltf
+
+
+def select_animation(clips, requested):
+    if not clips:
+        raise RuntimeError("The input model contains no glTF animation clips.")
+    if not requested:
+        return clips[0]
+    for clip in clips:
+        if clip["name"].casefold() == requested.casefold():
+            return clip
+    raise RuntimeError(
+        "Animation clip '{0}' was not found. Available clips: {1}".format(
+            requested, ", ".join(clip["name"] for clip in clips),
+        )
+    )
+
+
+def activate_animation(name):
+    """Solo one imported glTF NLA clip so FBX emits one predictable take."""
+    matched = False
+    for obj in bpy.data.objects:
+        animation_data = obj.animation_data
+        if not animation_data:
+            continue
+        active = animation_data.action
+        active_matches = bool(active and active.name.casefold() == name.casefold())
+        matching_track = False
+        for track in animation_data.nla_tracks:
+            track_matches = track.name.casefold() == name.casefold() or any(
+                strip.action and strip.action.name.casefold() == name.casefold()
+                for strip in track.strips
+            )
+            track.mute = not track_matches
+            matching_track = matching_track or track_matches
+        if matching_track:
+            animation_data.action = None
+            matched = True
+        elif active_matches:
+            matched = True
+        elif active:
+            animation_data.action = None
+    if not matched:
+        raise RuntimeError("Blender imported the model but could not activate animation clip '{0}'.".format(name))
 
 
 def safe_name(value):
@@ -76,21 +104,40 @@ def externalize_images(folder):
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
-    if len(args) != 4:
-        raise RuntimeError("Expected input, output, texture directory, and manifest paths")
-    source, output, texture_dir, manifest = map(Path, args)
-    double_sided = uses_double_sided_material(source)
+    if len(args) not in {4, 5}:
+        raise RuntimeError("Expected input, output, texture directory, manifest, and optional conversion settings")
+    source, output, texture_dir, manifest = map(Path, args[:4])
+    options = json.loads(args[4]) if len(args) == 5 else {}
+    metadata = inspect_gltf(source)
+    motion_transfer = options.get("transfer_mode") == "motion"
+    selected = None
+    if motion_transfer:
+        selected = select_animation(metadata["animation_clips"], str(options.get("animation_clip") or ""))
+        if not options.get("include_source_model", False) and "weights" in selected["target_paths"]:
+            raise RuntimeError(
+                "The selected clip animates morph targets. Enable include_source_model to preserve that motion."
+            )
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(source))
+    if selected:
+        activate_animation(selected["name"])
     textures = externalize_images(texture_dir)
     Path(output).parent.mkdir(parents=True, exist_ok=True)
+    object_types = {"ARMATURE", "EMPTY"} if motion_transfer and not options.get("include_source_model", False) else {"ARMATURE", "CAMERA", "EMPTY", "LIGHT", "MESH", "OTHER"}
     bpy.ops.export_scene.fbx(
         filepath=str(output), use_selection=False, path_mode="COPY", embed_textures=False,
         add_leaf_bones=False, use_mesh_modifiers=False, mesh_smooth_type="FACE",
+        object_types=object_types, bake_anim=True, bake_anim_use_all_bones=True,
+        bake_anim_use_nla_strips=True, bake_anim_use_all_actions=not motion_transfer,
+        bake_anim_force_startend_keying=True, bake_anim_step=1.0,
+        bake_anim_simplify_factor=0.0,
     )
-    Path(manifest).write_text(json.dumps({
-        "success": True, "textures": textures, "double_sided": double_sided,
-    }, indent=2), encoding="utf-8")
+    metadata.update({
+        "success": True,
+        "textures": textures,
+        "selected_animation": selected["name"] if selected else "",
+    })
+    Path(manifest).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     print("[AssetSync] Exported {0} with {1} textures".format(output, len(textures)))
 
 

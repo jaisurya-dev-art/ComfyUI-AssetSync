@@ -6,7 +6,7 @@ from .errors import ValidationError
 
 
 PROTOCOL_NAME = "assetsync"
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 
 @dataclass
@@ -14,12 +14,18 @@ class ImportOptions:
     replace_existing: bool = False
     import_materials: bool = True
     import_textures: bool = True
+    import_animation: bool = True
+    motion_only: bool = False
+    animation_clip: str = ""
 
-    def to_dict(self) -> Dict[str, bool]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "replace_existing": self.replace_existing,
             "import_materials": self.import_materials,
             "import_textures": self.import_textures,
+            "import_animation": self.import_animation,
+            "motion_only": self.motion_only,
+            "animation_clip": self.animation_clip,
         }
 
 

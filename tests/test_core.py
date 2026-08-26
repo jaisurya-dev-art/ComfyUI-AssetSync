@@ -56,9 +56,13 @@ class CoreTests(unittest.TestCase):
             conversion_target("obj", get_destination("Unreal Engine"))
 
     def test_protocol_round_trip(self):
-        payload = import_request(AssetDescriptor.from_path(self.path, asset_id="id"), "blender", ImportOptions(True, True, True))
+        options = ImportOptions(True, True, True, True, True, "Walk")
+        payload = import_request(AssetDescriptor.from_path(self.path, asset_id="id"), "blender", options)
         validate_request(json.loads(json.dumps(payload)))
         self.assertEqual(payload["asset"]["id"], "id")
+        self.assertEqual(payload["version"], 2)
+        self.assertTrue(payload["options"]["motion_only"])
+        self.assertEqual(payload["options"]["animation_clip"], "Walk")
 
     def test_resolved_asset_preserves_original_format(self):
         asset = AssetDescriptor.from_path(self.path, asset_id="id")

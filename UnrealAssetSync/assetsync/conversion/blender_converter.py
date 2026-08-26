@@ -55,7 +55,7 @@ def source_fingerprint(path: Path) -> Dict[str, object]:
 class BlenderFbxConverter(BaseConverter):
     source_formats = frozenset({"glb", "gltf"})
     target_format = "fbx"
-    version = 3
+    version = 4
 
     def __init__(self, config: AssetSyncConfig):
         self.config = config
@@ -72,6 +72,9 @@ class BlenderFbxConverter(BaseConverter):
         expected = {
             "asset_id": asset.asset_id, "source_format": asset.mesh_format,
             "target_format": "fbx", "converter": "blender", "conversion_version": self.version,
+            "transfer_mode": str(asset.metadata.get("transfer_mode") or "asset"),
+            "animation_clip": str(asset.metadata.get("animation_clip") or ""),
+            "include_source_model": bool(asset.metadata.get("include_source_model", True)),
             **fingerprint,
         }
         if output.is_file() and output.stat().st_size and metadata_path.is_file():
@@ -95,7 +98,15 @@ class BlenderFbxConverter(BaseConverter):
             shutil.copy2(str(source), str(source_cache))
         manifest = package / "conversion-result.json"
         script = Path(__file__).parent / "scripts" / "glb_to_fbx.py"
-        command = [str(blender), "--background", "--factory-startup", "--python", str(script), "--", str(source), str(output), str(textures), str(manifest)]
+        conversion_options = {
+            "transfer_mode": expected["transfer_mode"],
+            "animation_clip": expected["animation_clip"],
+            "include_source_model": expected["include_source_model"],
+        }
+        command = [
+            str(blender), "--background", "--factory-startup", "--python", str(script), "--",
+            str(source), str(output), str(textures), str(manifest), json.dumps(conversion_options),
+        ]
         try:
             process = subprocess.run(command, capture_output=True, text=True, timeout=900, check=False)
         except (OSError, subprocess.TimeoutExpired) as exc:
@@ -111,6 +122,11 @@ class BlenderFbxConverter(BaseConverter):
                 pass
         texture_paths = [str(Path(item).resolve()) for item in manifest_data.get("textures", []) if Path(item).is_file()]
         expected["texture_paths"] = texture_paths
-        expected["double_sided"] = bool(manifest_data.get("double_sided", False))
+        for key in (
+            "double_sided", "animation_clips", "animation_count", "has_animation",
+            "skeleton_count", "has_skeleton", "selected_animation",
+        ):
+            if key in manifest_data:
+                expected[key] = manifest_data[key]
         metadata_path.write_text(json.dumps(expected, indent=2, ensure_ascii=False), encoding="utf-8")
         return ConversionResult(True, str(source), str(output.resolve()), "fbx", texture_paths, "Converted with Blender", expected)
